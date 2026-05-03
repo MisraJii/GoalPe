@@ -9,7 +9,30 @@ from datetime import datetime
 # ==========================================
 # 1. Configuration & Setup
 # ==========================================
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+st.set_page_config(page_title="GoalPe", page_icon="🎯", layout="centered")
+
+# --- API Key Gate ---
+if "gemini_api_key" not in st.session_state:
+    st.session_state.gemini_api_key = ""
+
+if not st.session_state.gemini_api_key:
+    st.title("🎯 GoalPe")
+    st.markdown("**Your AI Wealth Coach.** Set a goal, or tell us what you're tempted to buy today.")
+    st.markdown("---")
+    api_key_input = st.text_input("Enter your Gemini API Key", type="password", placeholder="AIza...")
+    if st.button("Continue"):
+        if not api_key_input.strip():
+            st.warning("Please enter your Gemini API key to continue.")
+        else:
+            st.session_state.gemini_api_key = api_key_input.strip()
+            st.rerun()
+    else:
+        st.info("Please enter your Gemini API key to continue.")
+    st.stop()
+
+# Configure Gemini with the session key
+genai.configure(api_key=st.session_state.gemini_api_key)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 # ==========================================
@@ -94,12 +117,16 @@ def extract_intent(user_input):
         cleaned_response = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(cleaned_response)
     except Exception as e:
+        error_str = str(e).lower()
+        if "api_key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
+            st.error("❌ Invalid API key. Please refresh the page and enter a valid Gemini API key.")
+            st.session_state.gemini_api_key = ""
+            st.stop()
         return {"error": "I couldn't quite catch that. Could you rephrase it?"}
 
 # ==========================================
 # 5. Streamlit User Interface
 # ==========================================
-st.set_page_config(page_title="GoalPe", page_icon="🎯", layout="centered")
 
 st.title("🎯 GoalPe")
 st.markdown("**Your AI Wealth Coach.** Set a goal, or tell us what you're tempted to buy today.")
