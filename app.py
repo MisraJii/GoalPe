@@ -6,7 +6,7 @@ import json
 # 1. Configuration & Setup
 # ==========================================
 # Replace 'YOUR_API_KEY' with your actual Gemini API Key from Google AI Studio
-genai.configure(api_key="AIzaSyB1Ze3vW9J1wEv8jgM7PYqhlAlGGlRrpmo")
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # Set up the model. We use gemini-1.5-flash as it's fast and perfect for quick extraction
 model = genai.GenerativeModel('gemini-2.5-flash')
