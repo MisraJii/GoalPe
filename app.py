@@ -307,7 +307,7 @@ if not st.session_state.gemini_api_key:
 # Gemini Configuration
 # ==========================================
 genai.configure(api_key=st.session_state.gemini_api_key)
-model = genai.GenerativeModel('gemini-2.0-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # ==========================================
 # Sidebar
