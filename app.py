@@ -18,14 +18,19 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 def connect_to_db():
     try:
         scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        # Load the JSON string from Streamlit secrets and convert to a dictionary
-        creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+        
+        # Access the secrets directly as a dictionary
+        creds_dict = dict(st.secrets["google_credentials"])
+        
+        # Fix the newline issue that often breaks the private key
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
-        # Open the specific sheet
         return client.open("GoalPe_Database").sheet1
     except Exception as e:
-        st.error(f"Database Connection Error. Check your Secrets! Error: {e}")
+        # This will help us debug if there's still a tiny typo
+        st.error(f"Database Error: {e}")
         return None
 
 def log_to_database(intent, item, amount, months):
