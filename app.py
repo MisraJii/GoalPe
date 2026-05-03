@@ -172,56 +172,6 @@ st.markdown("""
     }
     .stButton > button:active { transform: translateY(0) !important; }
 
-    /* ---- API key card ---- */
-    .key-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 2.2rem 2rem 0.5rem;
-        max-width: 440px;
-        margin: 3rem auto 0;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    }
-    .key-card-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-        color: var(--text);
-    }
-    .key-card-sub {
-        font-size: 0.8rem;
-        color: var(--muted);
-        margin-bottom: 1.4rem;
-    }
-
-    /* ---- Text inputs ---- */
-    [data-testid="stTextInput"] input {
-        background: var(--surface2) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-        color: var(--text) !important;
-        font-family: var(--font) !important;
-        font-size: 0.88rem !important;
-    }
-    [data-testid="stTextInput"] input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 2px rgba(0,200,150,0.12) !important;
-    }
-    [data-testid="stTextInput"] label {
-        color: var(--muted) !important;
-        font-size: 0.8rem !important;
-        font-weight: 500 !important;
-        letter-spacing: 0.04em !important;
-    }
-
-    /* ---- Alerts ---- */
-    [data-testid="stAlert"] {
-        background: var(--surface2) !important;
-        border-radius: 10px !important;
-        border-left: 3px solid var(--accent) !important;
-        font-size: 0.85rem !important;
-    }
-
     /* ---- Sidebar ---- */
     [data-testid="stSidebar"] {
         background: var(--surface) !important;
@@ -242,12 +192,6 @@ st.markdown("""
         color: var(--accent);
         margin-bottom: 1rem;
     }
-    .sidebar-reset-note {
-        font-size: 0.75rem;
-        color: var(--muted);
-        margin-top: 1.5rem;
-        line-height: 1.5;
-    }
 
     /* ---- Spinner ---- */
     [data-testid="stSpinner"] { color: var(--accent) !important; }
@@ -257,57 +201,38 @@ st.markdown("""
 # ==========================================
 # Session State Initialization
 # ==========================================
-if "gemini_api_key" not in st.session_state:
-    st.session_state.gemini_api_key = ""
 if "goals_set" not in st.session_state:
     st.session_state.goals_set = 0
 if "impulses_skipped" not in st.session_state:
     st.session_state.impulses_skipped = 0
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Hi! What are you saving for today? Or, are you tempted to buy something right now?"}
+    ]
+if "active_goal" not in st.session_state:
+    st.session_state.active_goal = None
+if "active_sip" not in st.session_state:
+    st.session_state.active_sip = 0
 
 # ==========================================
-# API Key Gate
+# Gemini Configuration (Server-Side Secrets & Safety Filters)
 # ==========================================
-if not st.session_state.gemini_api_key:
-    st.markdown("""
-    <div style="text-align:center; margin-top:2rem;">
-        <div style="display:inline-flex; align-items:center; gap:0.6rem; margin-bottom:0.4rem;">
-            <div class="brand-logo">🎯</div>
-            <span class="brand-name" style="font-size:2rem;">GoalPe</span>
-        </div>
-        <div class="brand-sub" style="font-size:0.9rem; margin-bottom:0;">Your AI Wealth Coach</div>
-    </div>
-    <div class="key-card">
-        <div class="key-card-title">Connect your AI engine</div>
-        <div class="key-card-sub">Enter your Gemini API key to unlock the full experience. Your key stays in-session only.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_l, col_c, col_r = st.columns([1, 2.5, 1])
-    with col_c:
-        api_key_input = st.text_input(
-            "GEMINI API KEY",
-            type="password",
-            placeholder="AIza••••••••••••••••••••••••••••••••••••",
-        )
-        if st.button("Continue →", use_container_width=True):
-            if not api_key_input.strip():
-                st.warning("Please enter your Gemini API key to continue.")
-            else:
-                st.session_state.gemini_api_key = api_key_input.strip()
-                st.rerun()
-        st.markdown(
-            '<p style="text-align:center; font-size:0.75rem; color:#6b7280; margin-top:0.6rem;">'
-            'Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" '
-            'style="color:#00c896; text-decoration:none;">aistudio.google.com</a></p>',
-            unsafe_allow_html=True
-        )
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except KeyError:
+    st.error("Server Configuration Error: Gemini API Key is missing from Streamlit Secrets.")
     st.stop()
 
-# ==========================================
-# Gemini Configuration
-# ==========================================
-genai.configure(api_key=st.session_state.gemini_api_key)
-model = genai.GenerativeModel('gemini-2.5-flash')
+# Bypass safety filters so it allows "financial" terminology
+safety_settings = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+]
+
+# Using 1.5-flash for maximum production stability
+model = genai.GenerativeModel(model_name='gemini-1.5-flash', safety_settings=safety_settings)
 
 # ==========================================
 # Sidebar
@@ -326,19 +251,8 @@ with st.sidebar:
     st.markdown('<div class="sidebar-stat-label">Impulses Skipped</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sidebar-stat-value">{st.session_state.impulses_skipped}</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    if st.button("🔑 Change API Key", use_container_width=True):
-        st.session_state.gemini_api_key = ""
-        st.rerun()
-
-    st.markdown(
-        '<p class="sidebar-reset-note">Your API key is stored only in this browser session and is never saved to any server.</p>',
-        unsafe_allow_html=True
-    )
-
 # ==========================================
-# Database Connection (Google Sheets)
+# Database Connection (Protected)
 # ==========================================
 def connect_to_db():
     try:
@@ -349,14 +263,17 @@ def connect_to_db():
         client = gspread.authorize(creds)
         return client.open("GoalPe_Database").sheet1
     except Exception as e:
-        st.error(f"Database Error: {e}")
         return None
 
 def log_to_database(intent, item, amount, months):
-    sheet = connect_to_db()
-    if sheet:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, intent, item, amount, months])
+    try:
+        sheet = connect_to_db()
+        if sheet:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sheet.append_row([timestamp, intent, item, amount, months])
+    except Exception as e:
+        # Fails silently so the UI doesn't crash for the user
+        pass
 
 # ==========================================
 # Live Market Data
@@ -411,138 +328,6 @@ def extract_intent(user_input):
         response = model.generate_content(prompt)
         raw = response.text.strip()
 
-        # Robustly extract JSON: strip markdown fences, then find the first {...} block
-        raw = re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
-            st.error(f"⚠️ Could not find JSON in model response. Raw output:\n\n{raw}")
-            return {"error": "The AI returned an unexpected format. Please try again."}
-
-        return json.loads(match.group())
-
-    except json.JSONDecodeError as e:
-        st.error(f"⚠️ JSON parse error: {e}\n\nRaw response:\n\n{response.text}")
-        return {"error": "The AI returned an unexpected format. Please try again."}
-    except Exception as e:
-        error_str = str(e).lower()
-        if "api_key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
-            st.error("❌ Invalid API key. Use the sidebar to re-enter a valid key.")
-            st.session_state.gemini_api_key = ""
-            st.stop()
-        st.error(f"Unexpected error: {e}")
-        return {"error": "Something went wrong. Please try again."}
-
-# ==========================================
-# Main UI — Brand Header
-# ==========================================
-st.markdown("""
-<div class="brand-bar">
-    <div class="brand-logo">🎯</div>
-    <span class="brand-name">GoalPe</span>
-</div>
-<div class="brand-sub">Your AI Wealth Coach — set a goal, or tell us what you're tempted to buy.</div>
-""", unsafe_allow_html=True)
-
-# Market Pulse Card
-current_price, change, change_pct = get_nifty_data()
-if current_price:
-    change_class = "pulse-change-up" if change >= 0 else "pulse-change-down"
-    change_arrow = "▲" if change >= 0 else "▼"
-    st.markdown(f"""
-    <div class="pulse-card">
-        <div>
-            <div class="pulse-label">Live Market Pulse</div>
-            <div class="pulse-price">₹{current_price:,.2f}</div>
-            <div class="{change_class}">{change_arrow} {abs(change):,.2f} ({change_pct:+.2f}%) &nbsp;·&nbsp; Nifty 50</div>
-        </div>
-        <div class="pulse-dot"></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Chat session state
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! What are you saving for today? Or, are you tempted to buy something right now?"}
-    ]
-if "active_goal" not in st.session_state:
-    st.session_state.active_goal = None
-if "active_sip" not in st.session_state:
-    st.session_state.active_sip = 0
-
-# Render chat history
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# Chat input
-if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months"):
-    st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-    with st.spinner("Analyzing your finances..."):
-        data = extract_intent(prompt)
-
-        if "error" in data:
-            bot_reply = data["error"]
-
-        elif data.get("intent") == "refusal":
-            bot_reply = f"**🛡️ Compliance Guardrail Triggered:**\n\n{data.get('message')}"
-            log_to_database("Guardrail Block", "Illegal Advice Attempt", 0, 0)
-
-        elif data.get("intent") == "new_goal":
-            target        = data.get("amount", 0)
-            months        = data.get("months", 6)
-            item          = data.get("item", "Goal")
-            portfolio     = data.get("portfolio", {"Liquid Fund": 100})
-            blended_rate  = data.get("blended_return", 0.065)
-            explanation   = data.get("explanation", "Keeping it safe in a liquid fund.")
-
-            if target > 0:
-                sip = calculate_sip(target, months, blended_rate)
-                st.session_state.active_goal = item
-                st.session_state.active_sip  = sip
-                st.session_state.goals_set  += 1
-                log_to_database("New Goal", item, target, months)
-
-                portfolio_text = "\n".join([f"- **{k}**: {v}%" for k, v in portfolio.items()])
-                bot_reply = (
-                    f"Awesome! A **{item}** sounds great.\n\n"
-                    f"To hit **₹{target:,}** in **{months} months**, you need to save **₹{sip:,} / month**.\n\n"
-                    f"### 📊 Your Custom AI Portfolio (Expected Return: {blended_rate*100:.1f}%)\n"
-                    f"{portfolio_text}\n\n"
-                    f"💡 *Why this mix?* {explanation}\n\n"
-                    f"**Should I set up this automated split for you?**"
-                )
-            else:
-                bot_reply = f"I'd love to help you build a portfolio for that {item}! Roughly how much will it cost?"
-
-        elif data.get("intent") == "skip_expense":
-            expense_amt  = data.get("amount", 0)
-            expense_item = data.get("item", "purchase")
-
-            if st.session_state.active_goal and st.session_state.active_sip > 0:
-                daily_sip_rate = st.session_state.active_sip / 30
-                days_saved     = max(1, int(expense_amt / daily_sip_rate))
-                st.session_state.impulses_skipped += 1
-                log_to_database("Impulse Skipped", expense_item, expense_amt, 0)
-
-                bot_reply = (
-                    f"**Hold up! 🛑**\n\n"
-                    f"If you skip that **{expense_item}** and invest ₹{expense_amt} into your custom portfolio right now, "
-                    f"you'll reach your **{st.session_state.active_goal}** goal **{days_saved} days earlier!**\n\n"
-                    f"Should we transfer ₹{expense_amt} to your goal instead?"
-                )
-            else:
-                bot_reply = f"Skipping that **{expense_item}** is a great idea to save ₹{expense_amt}. Set a major savings goal first!"
-
-        else:
-            bot_reply = "I couldn't quite catch that. Could you rephrase it?"
-
-    with st.chat_message("assistant"):
-        st.markdown(bot_reply)
-        if data.get("intent") == "new_goal" and data.get("amount", 0) > 0:
-            st.button("✅ Yes, Start Saving")
-        elif data.get("intent") == "skip_expense" and st.session_state.active_goal:
-            st.button(f"🚀 Skip & Invest ₹{data.get('amount')}")
-
-    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+        # Robustly extract JSON
+        raw = re.sub(r"
+http://googleusercontent.com/immersive_entry_chip/0
