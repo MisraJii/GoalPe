@@ -232,7 +232,7 @@ safety_settings = [
 ]
 
 # Using 1.5-flash for maximum production stability
-model = genai.GenerativeModel(model_name='gemini-1.5-flash', safety_settings=safety_settings)
+model = genai.GenerativeModel(model_name='gemini-2.5-flash', safety_settings=safety_settings)
 
 # ==========================================
 # Sidebar
@@ -339,7 +339,7 @@ def extract_intent(user_input):
         return json.loads(match.group())
 
     except Exception as e:
-        return {"error": "Our AI logic engine encountered an error. Please try rewording your goal!"}
+        return {"error": f"SYSTEM ERROR: {str(e)}"}
 
 # ==========================================
 # Main UI
