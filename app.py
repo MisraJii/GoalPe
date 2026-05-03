@@ -16,7 +16,7 @@ st.set_page_config(page_title="GoalPe", page_icon="🎯", layout="centered")
 # Global CSS Injection
 # ==========================================
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="[https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap](https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap)" rel="stylesheet">
 <style>
     /* ---- Base & Reset ---- */
     :root {
@@ -256,7 +256,7 @@ with st.sidebar:
 # ==========================================
 def connect_to_db():
     try:
-        scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+        scopes = ['[https://www.googleapis.com/auth/spreadsheets](https://www.googleapis.com/auth/spreadsheets)', '[https://www.googleapis.com/auth/drive](https://www.googleapis.com/auth/drive)']
         creds_dict = dict(st.secrets["google_credentials"])
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
@@ -322,12 +322,126 @@ def extract_intent(user_input):
     
     User Input: "{user_input}"
     
-    Return ONLY valid JSON. No markdown, no backticks, no explanation. Just the raw JSON object.
+    Return ONLY valid JSON. No markdown, no explanation. Just the raw JSON object.
     """
     try:
         response = model.generate_content(prompt)
         raw = response.text.strip()
 
-        # Robustly extract JSON
-        raw = re.sub(r"
-http://googleusercontent.com/immersive_entry_chip/0
+        # Safely remove markdown code blocks without using backticks in the python string
+        backticks = "`" * 3
+        raw = raw.replace(backticks + "json", "").replace(backticks, "").strip()
+        
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            return {"error": "The AI returned an unexpected format. Please try again."}
+
+        return json.loads(match.group())
+
+    except Exception as e:
+        return {"error": "Our AI logic engine encountered an error. Please try rewording your goal!"}
+
+# ==========================================
+# Main UI
+# ==========================================
+st.markdown("""
+<div class="brand-bar">
+    <div class="brand-logo">🎯</div>
+    <span class="brand-name">GoalPe</span>
+</div>
+<div class="brand-sub">Your AI Wealth Coach — set a goal, or tell us what you're tempted to buy.</div>
+""", unsafe_allow_html=True)
+
+# Market Pulse Card
+current_price, change, change_pct = get_nifty_data()
+if current_price:
+    change_class = "pulse-change-up" if change >= 0 else "pulse-change-down"
+    change_arrow = "▲" if change >= 0 else "▼"
+    st.markdown(f"""
+    <div class="pulse-card">
+        <div>
+            <div class="pulse-label">Live Market Pulse</div>
+            <div class="pulse-price">₹{current_price:,.2f}</div>
+            <div class="{change_class}">{change_arrow} {abs(change):,.2f} ({change_pct:+.2f}%) &nbsp;·&nbsp; Nifty 50</div>
+        </div>
+        <div class="pulse-dot"></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Render chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Chat input processing
+if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months"):
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    with st.spinner("Analyzing your finances..."):
+        data = extract_intent(prompt)
+
+        if "error" in data:
+            bot_reply = data["error"]
+
+        elif data.get("intent") == "refusal":
+            bot_reply = f"**🛡️ Compliance Guardrail Triggered:**\n\n{data.get('message')}"
+            log_to_database("Guardrail Block", "Illegal Advice Attempt", 0, 0)
+
+        elif data.get("intent") == "new_goal":
+            target        = data.get("amount", 0)
+            months        = data.get("months", 6)
+            item          = data.get("item", "Goal")
+            portfolio     = data.get("portfolio", {"Liquid Fund": 100})
+            blended_rate  = data.get("blended_return", 0.065)
+            explanation   = data.get("explanation", "Keeping it safe in a liquid fund.")
+
+            if target > 0:
+                sip = calculate_sip(target, months, blended_rate)
+                st.session_state.active_goal = item
+                st.session_state.active_sip  = sip
+                st.session_state.goals_set  += 1
+                log_to_database("New Goal", item, target, months)
+
+                portfolio_text = "\n".join([f"- **{k}**: {v}%" for k, v in portfolio.items()])
+                bot_reply = (
+                    f"Awesome! A **{item}** sounds great.\n\n"
+                    f"To hit **₹{target:,}** in **{months} months**, you need to save **₹{sip:,} / month**.\n\n"
+                    f"### 📊 Your Custom AI Portfolio (Expected Return: {blended_rate*100:.1f}%)\n"
+                    f"{portfolio_text}\n\n"
+                    f"💡 *Why this mix?* {explanation}\n\n"
+                    f"**Should I set up this automated split for you?**"
+                )
+            else:
+                bot_reply = f"I'd love to help you build a portfolio for that {item}! Roughly how much will it cost?"
+
+        elif data.get("intent") == "skip_expense":
+            expense_amt  = data.get("amount", 0)
+            expense_item = data.get("item", "purchase")
+
+            if st.session_state.active_goal and st.session_state.active_sip > 0:
+                daily_sip_rate = st.session_state.active_sip / 30
+                days_saved     = max(1, int(expense_amt / daily_sip_rate))
+                st.session_state.impulses_skipped += 1
+                log_to_database("Impulse Skipped", expense_item, expense_amt, 0)
+
+                bot_reply = (
+                    f"**Hold up! 🛑**\n\n"
+                    f"If you skip that **{expense_item}** and invest ₹{expense_amt} into your custom portfolio right now, "
+                    f"you'll reach your **{st.session_state.active_goal}** goal **{days_saved} days earlier!**\n\n"
+                    f"Should we transfer ₹{expense_amt} to your goal instead?"
+                )
+            else:
+                bot_reply = f"Skipping that **{expense_item}** is a great idea to save ₹{expense_amt}. Set a major savings goal first!"
+
+        else:
+            bot_reply = "I couldn't quite catch that. Could you rephrase it?"
+
+    with st.chat_message("assistant"):
+        st.markdown(bot_reply)
+        if data.get("intent") == "new_goal" and data.get("amount", 0) > 0:
+            st.button("✅ Yes, Start Saving")
+        elif data.get("intent") == "skip_expense" and st.session_state.active_goal:
+            st.button(f"🚀 Skip & Invest ₹{data.get('amount')}")
+
+    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
