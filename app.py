@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import yfinance as yf
 
 # ==========================================
 # 1. Configuration & Setup
@@ -12,7 +13,23 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 # ==========================================
-# 2. Math & Logic Engine
+# 2. Live Market Data (Phase 1)
+# ==========================================
+@st.cache_data(ttl=300) # Caches data for 5 mins so it doesn't slow down the app
+def get_nifty_data():
+    try:
+        nifty = yf.Ticker("^NSEI")
+        hist = nifty.history(period="2d")
+        current_price = hist['Close'].iloc[-1]
+        prev_price = hist['Close'].iloc[-2]
+        change = current_price - prev_price
+        change_pct = (change / prev_price) * 100
+        return current_price, change, change_pct
+    except:
+        return None, None, None
+
+# ==========================================
+# 3. Math & Logic Engine
 # ==========================================
 def calculate_sip(target_amount, months, annual_rate):
     """Calculates the monthly SIP required to hit a target amount."""
@@ -22,10 +39,14 @@ def calculate_sip(target_amount, months, annual_rate):
     return round(sip_amount)
 
 def extract_intent(user_input):
-    """Uses Gemini to act as a Robo-Advisor or a Behavioral Coach."""
+    """Uses Gemini to act as a Robo-Advisor, Coach, or Compliance Guard."""
     prompt = f"""
     You are an expert AI wealth manager and behavioral finance coach for retail users in India. 
     Analyze the user's input.
+
+    If the user asks for DIRECT STOCK, CRYPTO, or TRADING ADVICE (e.g., "Should I buy Dogecoin?", "Is Reliance a good stock?"):
+    Return a JSON object with:
+    {{"intent": "refusal", "message": "I am designed for goal-based wealth building via diversified mutual funds, not direct stock or crypto trading. Let's focus on your long-term goals instead!"}}
     
     If the user wants to SAVE for a big goal, return a JSON object with:
     1. "intent": "new_goal"
@@ -52,12 +73,19 @@ def extract_intent(user_input):
         return {"error": "I couldn't quite catch that. Could you rephrase it?"}
 
 # ==========================================
-# 3. Streamlit User Interface
+# 4. Streamlit User Interface
 # ==========================================
 st.set_page_config(page_title="GoalPe", page_icon="🎯", layout="centered")
 
 st.title("🎯 GoalPe")
 st.markdown("**Your AI Wealth Coach.** Set a goal, or tell us what you're tempted to buy today.")
+
+# --- Display Live Market Pulse ---
+current_price, change, change_pct = get_nifty_data()
+if current_price:
+    st.caption("Live Market Pulse")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Nifty 50", f"₹{current_price:,.2f}", f"{change:,.2f} ({change_pct:.2f}%)")
 st.markdown("---")
 
 # Initialize chat history and active goals in session state
@@ -76,7 +104,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # React to user input
-if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'm about to spend ₹400 on a burger"):
+if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'm about to spend ₹400"):
     # Display user prompt
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -87,7 +115,11 @@ if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'
         if "error" in data:
             bot_reply = data["error"]
             
-        # --- LOGIC FLOW 1: NEW GOAL (Robo-Advisor) ---
+        # --- LOGIC FLOW 1: REFUSAL (Guardrails) ---
+        elif data.get("intent") == "refusal":
+            bot_reply = f"**🛡️ Compliance Guardrail Triggered:**\n\n{data.get('message')}"
+            
+        # --- LOGIC FLOW 2: NEW GOAL (Robo-Advisor) ---
         elif data.get("intent") == "new_goal":
             target = data.get("amount", 0)
             months = data.get("months", 6)
@@ -98,11 +130,9 @@ if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'
             
             if target > 0:
                 sip = calculate_sip(target, months, blended_rate)
-                # Save as active goal in memory for future tradeoffs
                 st.session_state.active_goal = item
                 st.session_state.active_sip = sip
                 
-                # Format the portfolio breakdown
                 portfolio_text = "\n".join([f"- **{k}**: {v}%" for k, v in portfolio.items()])
                 
                 bot_reply = f"Awesome! A **{item}** sounds great.\n\n"
@@ -114,17 +144,15 @@ if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'
             else:
                 bot_reply = f"I'd love to help you build a portfolio for that {item}! Roughly how much will it cost?"
 
-        # --- LOGIC FLOW 2: IMPULSE SKIP (Behavioral Engine) ---
+        # --- LOGIC FLOW 3: IMPULSE SKIP (Behavioral Engine) ---
         elif data.get("intent") == "skip_expense":
             expense_amt = data.get("amount", 0)
             expense_item = data.get("item", "purchase")
             
             if st.session_state.active_goal and st.session_state.active_sip > 0:
-                # Math: Calculate how many days of SIP this expense equals
                 daily_sip_rate = st.session_state.active_sip / 30
                 days_saved = int(expense_amt / daily_sip_rate)
-                
-                if days_saved < 1: days_saved = 1 # Minimum 1 day for a psychological win
+                if days_saved < 1: days_saved = 1 
                 
                 bot_reply = f"**Hold up! 🛑** \n\nIf you skip that **{expense_item}** and invest that ₹{expense_amt} into your custom portfolio right now, you will reach your **{st.session_state.active_goal}** goal **{days_saved} days earlier!** \n\nShould we transfer ₹{expense_amt} to your goal instead?"
             else:
@@ -134,7 +162,7 @@ if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months, OR I'
     with st.chat_message("assistant"):
         st.markdown(bot_reply)
         
-        # Add dynamic buttons based on the context
+        # Add dynamic buttons
         if data.get("intent") == "new_goal" and data.get("amount", 0) > 0:
              st.button("✅ Yes, Start Saving")
         elif data.get("intent") == "skip_expense" and st.session_state.active_goal:
