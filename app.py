@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import re
 import yfinance as yf
 import gspread
 from google.oauth2.service_account import Credentials
@@ -404,19 +405,32 @@ def extract_intent(user_input):
     
     User Input: "{user_input}"
     
-    Return ONLY valid JSON.
+    Return ONLY valid JSON. No markdown, no backticks, no explanation. Just the raw JSON object.
     """
     try:
         response = model.generate_content(prompt)
-        cleaned_response = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned_response)
+        raw = response.text.strip()
+
+        # Robustly extract JSON: strip markdown fences, then find the first {...} block
+        raw = re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if not match:
+            st.error(f"⚠️ Could not find JSON in model response. Raw output:\n\n{raw}")
+            return {"error": "The AI returned an unexpected format. Please try again."}
+
+        return json.loads(match.group())
+
+    except json.JSONDecodeError as e:
+        st.error(f"⚠️ JSON parse error: {e}\n\nRaw response:\n\n{response.text}")
+        return {"error": "The AI returned an unexpected format. Please try again."}
     except Exception as e:
         error_str = str(e).lower()
         if "api_key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
             st.error("❌ Invalid API key. Use the sidebar to re-enter a valid key.")
             st.session_state.gemini_api_key = ""
             st.stop()
-        return {"error": "I couldn't quite catch that. Could you rephrase it?"}
+        st.error(f"Unexpected error: {e}")
+        return {"error": "Something went wrong. Please try again."}
 
 # ==========================================
 # Main UI — Brand Header
