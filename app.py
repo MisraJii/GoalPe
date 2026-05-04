@@ -171,48 +171,6 @@ st.markdown("""
     }
     .stButton > button:active { transform: translateY(0) !important; }
 
-    /* ---- API key card ---- */
-    .key-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 2.2rem 2rem 0.5rem;
-        max-width: 440px;
-        margin: 3rem auto 0;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    }
-    .key-card-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-        color: var(--text);
-    }
-    .key-card-sub {
-        font-size: 0.8rem;
-        color: var(--muted);
-        margin-bottom: 1.4rem;
-    }
-
-    /* ---- Text inputs ---- */
-    [data-testid="stTextInput"] input {
-        background: var(--surface2) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-        color: var(--text) !important;
-        font-family: var(--font) !important;
-        font-size: 0.88rem !important;
-    }
-    [data-testid="stTextInput"] input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 2px rgba(0,200,150,0.12) !important;
-    }
-    [data-testid="stTextInput"] label {
-        color: var(--muted) !important;
-        font-size: 0.8rem !important;
-        font-weight: 500 !important;
-        letter-spacing: 0.04em !important;
-    }
-
     /* ---- Alerts ---- */
     [data-testid="stAlert"] {
         background: var(--surface2) !important;
@@ -254,10 +212,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
+# Load API Key from Streamlit Secrets
+# ==========================================
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+except KeyError:
+    st.error("⚠️ Gemini API key not found. Please add GEMINI_API_KEY to your Streamlit secrets.")
+    st.stop()
+
+genai.configure(api_key=GEMINI_API_KEY)
+
+# ==========================================
 # Session State Initialization
 # ==========================================
-if "gemini_api_key" not in st.session_state:
-    st.session_state.gemini_api_key = ""
 if "goals_set" not in st.session_state:
     st.session_state.goals_set = 0
 if "impulses_skipped" not in st.session_state:
@@ -265,52 +232,7 @@ if "impulses_skipped" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_history" not in st.session_state:
-    # Gemini-format multi-turn history (role: user/model)
     st.session_state.chat_history = []
-
-# ==========================================
-# API Key Gate
-# ==========================================
-if not st.session_state.gemini_api_key:
-    st.markdown("""
-    <div style="text-align:center; margin-top:2rem;">
-        <div style="display:inline-flex; align-items:center; gap:0.6rem; margin-bottom:0.4rem;">
-            <div class="brand-logo">🎯</div>
-            <span class="brand-name" style="font-size:2rem;">GoalPe</span>
-        </div>
-        <div class="brand-sub" style="font-size:0.9rem; margin-bottom:0;">Your AI Wealth Coach</div>
-    </div>
-    <div class="key-card">
-        <div class="key-card-title">Connect your AI engine</div>
-        <div class="key-card-sub">Enter your Gemini API key to unlock the full experience. Your key stays in-session only.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_l, col_c, col_r = st.columns([1, 2.5, 1])
-    with col_c:
-        api_key_input = st.text_input(
-            "GEMINI API KEY",
-            type="password",
-            placeholder="AIza••••••••••••••••••••••••••••••••••••",
-        )
-        if st.button("Continue →", use_container_width=True):
-            if not api_key_input.strip():
-                st.warning("Please enter your Gemini API key to continue.")
-            else:
-                st.session_state.gemini_api_key = api_key_input.strip()
-                st.rerun()
-        st.markdown(
-            '<p style="text-align:center; font-size:0.75rem; color:#6b7280; margin-top:0.6rem;">'
-            'Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" '
-            'style="color:#00c896; text-decoration:none;">aistudio.google.com</a></p>',
-            unsafe_allow_html=True
-        )
-    st.stop()
-
-# ==========================================
-# Gemini Configuration
-# ==========================================
-genai.configure(api_key=st.session_state.gemini_api_key)
 
 # ==========================================
 # System Prompt — GoalPe's AI Brain
@@ -407,14 +329,8 @@ with st.sidebar:
         st.session_state.chat_history = []
         st.rerun()
 
-    if st.button("🔑 Change API Key", use_container_width=True):
-        st.session_state.gemini_api_key = ""
-        st.session_state.messages = []
-        st.session_state.chat_history = []
-        st.rerun()
-
     st.markdown(
-        '<p class="sidebar-reset-note">Your API key is stored only in this browser session and is never saved to any server.</p>',
+        '<p class="sidebar-reset-note">GoalPe is an AI assistant and does not provide certified financial advice. Always consult a SEBI-registered advisor for major decisions.</p>',
         unsafe_allow_html=True
     )
 
@@ -430,7 +346,6 @@ def connect_to_db():
         client = gspread.authorize(creds)
         return client.open("GoalPe_Database").sheet1
     except Exception as e:
-        st.error(f"Database Error: {e}")
         return None
 
 def log_to_database(log_type):
@@ -459,46 +374,35 @@ def get_nifty_data():
 # Core AI Chat Function
 # ==========================================
 def chat_with_goalpe(user_message):
-    """
-    Send user message to Gemini with full conversation history.
-    Returns (clean_reply, log_tag).
-    """
     try:
         model = genai.GenerativeModel(
             model_name='gemini-2.5-flash',
             system_instruction=SYSTEM_PROMPT
         )
 
-        # Start chat with existing history
         chat = model.start_chat(history=st.session_state.chat_history)
-
-        # Send the new message
         response = chat.send_message(user_message)
         raw_reply = response.text.strip()
 
-        # Extract the log tag silently
+        # Extract log tag
         log_tag = "chat"
         tag_match = re.search(r'\[LOG:(\w+)\]', raw_reply)
         if tag_match:
             log_tag = tag_match.group(1)
 
-        # Strip the log tag from the displayed reply
+        # Strip log tag from displayed reply
         clean_reply = re.sub(r'\s*\[LOG:\w+\]\s*$', '', raw_reply).strip()
 
-        # Update the conversation history for next turn
+        # Update conversation history
         st.session_state.chat_history = chat.history
 
         return clean_reply, log_tag
 
     except Exception as e:
         error_str = str(e).lower()
-        if "api_key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
-            st.error("❌ Invalid API key. Use the sidebar to re-enter a valid key.")
-            st.session_state.gemini_api_key = ""
-            st.stop()
         if "429" in str(e) or "quota" in error_str or "rate" in error_str:
             return "⏳ You've hit the Gemini rate limit. Please wait a moment and try again.", "chat"
-        return f"Something went wrong. Please try again.", "chat"
+        return "Something went wrong. Please try again.", "chat"
 
 # ==========================================
 # Main UI — Brand Header
@@ -527,7 +431,7 @@ if current_price:
     </div>
     """, unsafe_allow_html=True)
 
-# Opening message if fresh session
+# Opening message on fresh session
 if not st.session_state.messages:
     opening = "Hey! 👋 I'm GoalPe, your personal AI wealth coach. I can help you plan savings goals, figure out your monthly SIP, talk through investment options, or just answer any finance questions you have.\n\nWhat's on your mind today?"
     st.session_state.messages.append({"role": "assistant", "content": opening})
@@ -541,26 +445,22 @@ for message in st.session_state.messages:
 # Chat Input & Response
 # ==========================================
 if prompt := st.chat_input("Ask me anything — goals, SIPs, investments, or just say hi!"):
-    # Show user message immediately
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
         reply, log_tag = chat_with_goalpe(prompt)
 
-        # Update sidebar counters based on log tag
         if log_tag == "new_goal":
             st.session_state.goals_set += 1
         elif log_tag == "impulse":
             st.session_state.impulses_skipped += 1
 
-        # Fire to database (non-blocking — errors are silent)
         try:
             log_to_database(log_tag)
         except:
             pass
 
-    # Display assistant reply
     with st.chat_message("assistant"):
         st.markdown(reply)
 
