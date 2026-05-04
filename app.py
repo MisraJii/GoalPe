@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import json
 import re
 import yfinance as yf
 import gspread
@@ -263,6 +262,11 @@ if "goals_set" not in st.session_state:
     st.session_state.goals_set = 0
 if "impulses_skipped" not in st.session_state:
     st.session_state.impulses_skipped = 0
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "chat_history" not in st.session_state:
+    # Gemini-format multi-turn history (role: user/model)
+    st.session_state.chat_history = []
 
 # ==========================================
 # API Key Gate
@@ -307,7 +311,77 @@ if not st.session_state.gemini_api_key:
 # Gemini Configuration
 # ==========================================
 genai.configure(api_key=st.session_state.gemini_api_key)
-model = genai.GenerativeModel('gemini-2.5-flash')
+
+# ==========================================
+# System Prompt — GoalPe's AI Brain
+# ==========================================
+SYSTEM_PROMPT = """
+You are GoalPe, a friendly and knowledgeable AI wealth coach designed specifically for retail users in India. You are warm, conversational, and intelligent — like a trusted friend who happens to be a SEBI-registered financial advisor.
+
+## YOUR PERSONALITY
+- Respond naturally to ALL messages. If someone says "Hi" or "Hello", greet them warmly and ask how you can help with their financial goals. Do NOT jump into financial analysis for casual messages.
+- Be concise but thorough. Use simple language, not financial jargon.
+- Use Indian context: rupees (₹), Indian mutual fund categories, SIP terminology, Indian financial products.
+- You can use light emoji where appropriate to keep the tone friendly.
+
+## WHAT YOU CAN HELP WITH
+1. **Savings Goals** — Help users figure out how much to save monthly (SIP) to reach a target amount in a given time.
+2. **Impulse Control** — When users mention they want to buy something impulsively, help them see the opportunity cost in terms of their savings goals.
+3. **Mutual Fund Guidance** — Recommend appropriate Indian mutual fund categories based on risk and time horizon. Never recommend specific fund houses by name, only categories (e.g., Large Cap Fund, ELSS, Liquid Fund, Flexi Cap Fund).
+4. **General Financial Literacy** — Answer questions about SIPs, mutual funds, compounding, budgeting, etc.
+5. **Casual Conversation** — Respond naturally. You are a chatbot with a personality, not a form.
+
+## WHAT YOU MUST NEVER DO
+- Never recommend direct stocks, F&O trading, or cryptocurrencies. Politely decline and redirect to mutual funds.
+- Never give specific fund house recommendations (no "Invest in HDFC Top 100").
+- Never guarantee returns. Always say "expected" or "historically".
+
+## HOW TO DO SIP CALCULATIONS
+When a user wants to save for a goal, use this formula yourself and show your working clearly:
+
+Monthly SIP = (Target × monthly_rate) / ((1 + monthly_rate)^months - 1)
+
+Where monthly_rate = annual_rate / 12
+
+Choose the annual_rate based on the recommended portfolio:
+- Liquid / Ultra Short Fund: 6.5% p.a.
+- Short Duration / Debt Fund: 7.5% p.a.
+- Large Cap Fund: 11% p.a.
+- Flexi Cap / Multi Cap Fund: 12% p.a.
+- Mid Cap Fund: 13% p.a.
+- Small Cap Fund: 14% p.a.
+- ELSS Fund: 12% p.a.
+
+Blend rates proportionally if recommending a mixed portfolio.
+Always round the monthly SIP to the nearest ₹100 for practicality.
+Show the calculation steps briefly so the user understands.
+
+## PORTFOLIO RECOMMENDATION LOGIC
+- Time horizon < 6 months → Liquid Fund or Ultra Short Duration Fund (capital safety)
+- Time horizon 6–12 months → Short Duration Debt Fund (stability)
+- Time horizon 1–3 years → Mix of Large Cap + Short Duration Debt
+- Time horizon 3–5 years → Flexi Cap or Large Cap Fund
+- Time horizon 5+ years → Flexi Cap + Mid Cap, optionally small allocation to Small Cap
+
+## IMPULSE PURCHASE HANDLING
+If a user mentions wanting to buy something impulsively (e.g., "I want to buy AirPods", "I'm tempted to splurge on a jacket"), and they have an active savings goal in the conversation history:
+- Acknowledge their desire warmly (don't be preachy)
+- Calculate how many days earlier they could reach their goal if they invested that amount instead
+- Let them make the choice — you're a coach, not a parent
+
+If they don't have an active goal, gently suggest setting one first.
+
+## LOGGING TAGS (IMPORTANT — ALWAYS INCLUDE AT END OF RESPONSE)
+At the very end of EVERY response, silently append one of these tags on its own line. This is for internal tracking only and will be hidden from the user. Always include exactly one tag:
+
+For casual/general conversation:    [LOG:chat]
+For a new savings goal created:     [LOG:new_goal]
+For an impulse purchase discussed:  [LOG:impulse]
+For a refusal (stocks/crypto):      [LOG:refusal]
+For general financial education:    [LOG:education]
+
+Do NOT explain these tags to the user. Just append them silently at the end.
+"""
 
 # ==========================================
 # Sidebar
@@ -323,13 +397,20 @@ with st.sidebar:
     st.markdown('<div class="sidebar-stat-label">Goals Set</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sidebar-stat-value">{st.session_state.goals_set}</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-stat-label">Impulses Skipped</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-stat-label">Impulses Discussed</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sidebar-stat-value">{st.session_state.impulses_skipped}</div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
+    if st.button("🔄 New Conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.chat_history = []
+        st.rerun()
+
     if st.button("🔑 Change API Key", use_container_width=True):
         st.session_state.gemini_api_key = ""
+        st.session_state.messages = []
+        st.session_state.chat_history = []
         st.rerun()
 
     st.markdown(
@@ -352,11 +433,11 @@ def connect_to_db():
         st.error(f"Database Error: {e}")
         return None
 
-def log_to_database(intent, item, amount, months):
+def log_to_database(log_type):
     sheet = connect_to_db()
     if sheet:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, intent, item, amount, months])
+        sheet.append_row([timestamp, log_type])
 
 # ==========================================
 # Live Market Data
@@ -375,62 +456,49 @@ def get_nifty_data():
         return None, None, None
 
 # ==========================================
-# Math & Logic Engine
+# Core AI Chat Function
 # ==========================================
-def calculate_sip(target_amount, months, annual_rate):
-    if months <= 0: return target_amount
-    monthly_rate = annual_rate / 12
-    sip_amount = (target_amount * monthly_rate) / (((1 + monthly_rate)**months) - 1)
-    return round(sip_amount)
-
-def extract_intent(user_input):
-    prompt = f"""
-    You are an expert AI wealth manager and behavioral finance coach for retail users in India. 
-    Analyze the user's input.
-
-    If the user asks for DIRECT STOCK, CRYPTO, or TRADING ADVICE:
-    Return: {{"intent": "refusal", "message": "I am designed for goal-based wealth building via diversified mutual funds, not direct stock or crypto trading."}}
-    
-    If the user wants to SAVE for a big goal, return:
-    1. "intent": "new_goal"
-    2. "amount": The target amount (integer). Return 0 if not specified.
-    3. "months": Time horizon (integer). Assume 6 if not specified.
-    4. "item": 2-3 word name for the goal.
-    5. "portfolio": A dictionary of 2-3 specific Indian mutual fund categories and their percentage allocation adding up to 100.
-    6. "blended_return": Expected annual return rate as a decimal.
-    7. "explanation": A 1-sentence simple explanation of WHY you chose this mix.
-    
-    If the user is talking about a DAILY EXPENSE to skip or an impulse purchase, return:
-    {{"intent": "skip_expense", "amount": 500, "item": "movie ticket"}}
-    
-    User Input: "{user_input}"
-    
-    Return ONLY valid JSON. No markdown, no backticks, no explanation. Just the raw JSON object.
+def chat_with_goalpe(user_message):
+    """
+    Send user message to Gemini with full conversation history.
+    Returns (clean_reply, log_tag).
     """
     try:
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
+        model = genai.GenerativeModel(
+            model_name='gemini-2.5-flash',
+            system_instruction=SYSTEM_PROMPT
+        )
 
-        # Robustly extract JSON: strip markdown fences, then find the first {...} block
-        raw = re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if not match:
-            st.error(f"⚠️ Could not find JSON in model response. Raw output:\n\n{raw}")
-            return {"error": "The AI returned an unexpected format. Please try again."}
+        # Start chat with existing history
+        chat = model.start_chat(history=st.session_state.chat_history)
 
-        return json.loads(match.group())
+        # Send the new message
+        response = chat.send_message(user_message)
+        raw_reply = response.text.strip()
 
-    except json.JSONDecodeError as e:
-        st.error(f"⚠️ JSON parse error: {e}\n\nRaw response:\n\n{response.text}")
-        return {"error": "The AI returned an unexpected format. Please try again."}
+        # Extract the log tag silently
+        log_tag = "chat"
+        tag_match = re.search(r'\[LOG:(\w+)\]', raw_reply)
+        if tag_match:
+            log_tag = tag_match.group(1)
+
+        # Strip the log tag from the displayed reply
+        clean_reply = re.sub(r'\s*\[LOG:\w+\]\s*$', '', raw_reply).strip()
+
+        # Update the conversation history for next turn
+        st.session_state.chat_history = chat.history
+
+        return clean_reply, log_tag
+
     except Exception as e:
         error_str = str(e).lower()
         if "api_key" in error_str or "invalid" in error_str or "401" in error_str or "403" in error_str:
             st.error("❌ Invalid API key. Use the sidebar to re-enter a valid key.")
             st.session_state.gemini_api_key = ""
             st.stop()
-        st.error(f"Unexpected error: {e}")
-        return {"error": "Something went wrong. Please try again."}
+        if "429" in str(e) or "quota" in error_str or "rate" in error_str:
+            return "⏳ You've hit the Gemini rate limit. Please wait a moment and try again.", "chat"
+        return f"Something went wrong. Please try again.", "chat"
 
 # ==========================================
 # Main UI — Brand Header
@@ -459,90 +527,41 @@ if current_price:
     </div>
     """, unsafe_allow_html=True)
 
-# Chat session state
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hi! What are you saving for today? Or, are you tempted to buy something right now?"}
-    ]
-if "active_goal" not in st.session_state:
-    st.session_state.active_goal = None
-if "active_sip" not in st.session_state:
-    st.session_state.active_sip = 0
+# Opening message if fresh session
+if not st.session_state.messages:
+    opening = "Hey! 👋 I'm GoalPe, your personal AI wealth coach. I can help you plan savings goals, figure out your monthly SIP, talk through investment options, or just answer any finance questions you have.\n\nWhat's on your mind today?"
+    st.session_state.messages.append({"role": "assistant", "content": opening})
 
 # Render chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat input
-if prompt := st.chat_input("E.g., I need ₹50k for a laptop in 14 months"):
+# ==========================================
+# Chat Input & Response
+# ==========================================
+if prompt := st.chat_input("Ask me anything — goals, SIPs, investments, or just say hi!"):
+    # Show user message immediately
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    with st.spinner("Analyzing your finances..."):
-        data = extract_intent(prompt)
+    with st.spinner("Thinking..."):
+        reply, log_tag = chat_with_goalpe(prompt)
 
-        if "error" in data:
-            bot_reply = data["error"]
+        # Update sidebar counters based on log tag
+        if log_tag == "new_goal":
+            st.session_state.goals_set += 1
+        elif log_tag == "impulse":
+            st.session_state.impulses_skipped += 1
 
-        elif data.get("intent") == "refusal":
-            bot_reply = f"**🛡️ Compliance Guardrail Triggered:**\n\n{data.get('message')}"
-            log_to_database("Guardrail Block", "Illegal Advice Attempt", 0, 0)
+        # Fire to database (non-blocking — errors are silent)
+        try:
+            log_to_database(log_tag)
+        except:
+            pass
 
-        elif data.get("intent") == "new_goal":
-            target        = data.get("amount", 0)
-            months        = data.get("months", 6)
-            item          = data.get("item", "Goal")
-            portfolio     = data.get("portfolio", {"Liquid Fund": 100})
-            blended_rate  = data.get("blended_return", 0.065)
-            explanation   = data.get("explanation", "Keeping it safe in a liquid fund.")
-
-            if target > 0:
-                sip = calculate_sip(target, months, blended_rate)
-                st.session_state.active_goal = item
-                st.session_state.active_sip  = sip
-                st.session_state.goals_set  += 1
-                log_to_database("New Goal", item, target, months)
-
-                portfolio_text = "\n".join([f"- **{k}**: {v}%" for k, v in portfolio.items()])
-                bot_reply = (
-                    f"Awesome! A **{item}** sounds great.\n\n"
-                    f"To hit **₹{target:,}** in **{months} months**, you need to save **₹{sip:,} / month**.\n\n"
-                    f"### 📊 Your Custom AI Portfolio (Expected Return: {blended_rate*100:.1f}%)\n"
-                    f"{portfolio_text}\n\n"
-                    f"💡 *Why this mix?* {explanation}\n\n"
-                    f"**Should I set up this automated split for you?**"
-                )
-            else:
-                bot_reply = f"I'd love to help you build a portfolio for that {item}! Roughly how much will it cost?"
-
-        elif data.get("intent") == "skip_expense":
-            expense_amt  = data.get("amount", 0)
-            expense_item = data.get("item", "purchase")
-
-            if st.session_state.active_goal and st.session_state.active_sip > 0:
-                daily_sip_rate = st.session_state.active_sip / 30
-                days_saved     = max(1, int(expense_amt / daily_sip_rate))
-                st.session_state.impulses_skipped += 1
-                log_to_database("Impulse Skipped", expense_item, expense_amt, 0)
-
-                bot_reply = (
-                    f"**Hold up! 🛑**\n\n"
-                    f"If you skip that **{expense_item}** and invest ₹{expense_amt} into your custom portfolio right now, "
-                    f"you'll reach your **{st.session_state.active_goal}** goal **{days_saved} days earlier!**\n\n"
-                    f"Should we transfer ₹{expense_amt} to your goal instead?"
-                )
-            else:
-                bot_reply = f"Skipping that **{expense_item}** is a great idea to save ₹{expense_amt}. Set a major savings goal first!"
-
-        else:
-            bot_reply = "I couldn't quite catch that. Could you rephrase it?"
-
+    # Display assistant reply
     with st.chat_message("assistant"):
-        st.markdown(bot_reply)
-        if data.get("intent") == "new_goal" and data.get("amount", 0) > 0:
-            st.button("✅ Yes, Start Saving")
-        elif data.get("intent") == "skip_expense" and st.session_state.active_goal:
-            st.button(f"🚀 Skip & Invest ₹{data.get('amount')}")
+        st.markdown(reply)
 
-    st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+    st.session_state.messages.append({"role": "assistant", "content": reply})
