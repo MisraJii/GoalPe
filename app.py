@@ -57,8 +57,8 @@ st.markdown(f"""
     /* Hide default Streamlit elements */
     #MainMenu, footer, header {{ visibility: hidden !important; }}
     
-    /* Massive bottom padding so chat messages don't hide behind the input + nav bar */
-    .block-container {{ padding-top: 1rem !important; padding-bottom: 9rem !important; max-width: 600px; }}
+    /* Massive bottom padding so you can scroll to the very last message */
+    .block-container {{ padding-top: 1rem !important; padding-bottom: 160px !important; max-width: 600px; }}
 
     /* ==========================================
        FIX 1: Force Metrics to respect Light/Dark Mode
@@ -67,7 +67,7 @@ st.markdown(f"""
     [data-testid="stMetricLabel"] p {{ color: var(--muted) !important; }}
 
     /* ==========================================
-       FIX 2: Pin Nav Menu strictly to the bottom
+       FIX 2: Force IFRAME Height so menu isn't cut off
        ========================================== */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
@@ -76,20 +76,22 @@ st.markdown(f"""
         transform: translateX(-50%) !important;
         width: 100% !important;
         max-width: 600px !important; 
-        z-index: 999999 !important; /* Guaranteed to sit on top */
+        height: 80px !important; /* <--- This gives the menu room to breathe */
+        z-index: 999999 !important; 
         background-color: var(--bg) !important;
-        padding-top: 10px;
-        padding-bottom: 10px; 
         border-top: 1px solid var(--border);
     }}
 
     /* ==========================================
-       FIX 3: Float the Chat Input ABOVE the Nav Menu
+       FIX 3: Float the entire Streamlit Bottom Container UP
        ========================================== */
-    [data-testid="stChatInput"] {{
-        bottom: 75px !important; /* Lifts it directly above the nav bar */
-        background-color: var(--bg) !important;
+    [data-testid="stBottom"] {{
+        bottom: 80px !important; /* Pushes chat box perfectly above nav bar */
         z-index: 99999 !important;
+        background-color: var(--bg) !important;
+    }}
+    [data-testid="stChatInput"] {{
+        bottom: 80px !important; /* Fallback for older Streamlit versions */
     }}
 
     /* Ticker Animation */
@@ -217,7 +219,7 @@ selected = option_menu(
     default_index=0,
     orientation="horizontal",
     styles={
-        "container": {"padding": "0!important", "background-color": surface_color, "border-radius": "15px", "margin-bottom": "20px"},
+        "container": {"padding": "0!important", "background-color": surface_color, "border-radius": "0px", "margin-bottom": "0px"},
         "icon": {"color": "#6c5ce7", "font-size": "18px"}, 
         "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": border_color, "color": text_color},
         "nav-link-selected": {"background-color": "#6c5ce7", "color": "white"},
