@@ -42,8 +42,7 @@ st.markdown(f"""
         --text: {text_color};
         --muted: {muted_color};
         --border: {border_color};
-        --accent: #6c5ce7; /* Purple accent matching your screenshots */
-        --accent-light: #a29bfe;
+        --accent: #6c5ce7; 
         --success: #00b894;
         --danger: #ff7675;
         --font: 'Sora', sans-serif;
@@ -57,7 +56,36 @@ st.markdown(f"""
     
     /* Hide default Streamlit elements */
     #MainMenu, footer, header {{ visibility: hidden !important; }}
-    .block-container {{ padding-top: 1rem !important; padding-bottom: 5rem !important; max-width: 600px; }}
+    
+    /* Add extra padding at the bottom so content doesn't hide behind the new bottom nav */
+    .block-container {{ padding-top: 1rem !important; padding-bottom: 6rem !important; max-width: 600px; }}
+
+    /* ==========================================
+       FIX 1: Force Metrics to respect Light/Dark Mode
+       ========================================== */
+    [data-testid="stMetricValue"] > div {{
+        color: var(--text) !important;
+    }}
+    [data-testid="stMetricLabel"] p {{
+        color: var(--muted) !important;
+    }}
+
+    /* ==========================================
+       FIX 2: Pin the Navigation Menu to the Bottom
+       ========================================== */
+    iframe[title="streamlit_option_menu.option_menu"] {{
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 100% !important;
+        max-width: 600px !important; /* Matches app width */
+        z-index: 99999 !important;
+        background-color: var(--bg) !important;
+        padding-top: 10px;
+        padding-bottom: 15px; /* Safe area for modern phones */
+        border-top: 1px solid var(--border);
+    }}
 
     /* Ticker Animation */
     .ticker-wrap {{
