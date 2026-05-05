@@ -15,13 +15,13 @@ import random
 st.set_page_config(page_title="GoalPe", page_icon="🎯", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
-# Session State Initialization (Expanded for V5)
+# Session State Initialization
 # ==========================================
 if "goals_set" not in st.session_state: st.session_state.goals_set = 0
 if "impulses_skipped" not in st.session_state: st.session_state.impulses_skipped = 0
 if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
-if "user_goals" not in st.session_state: st.session_state.user_goals = [] # Stores dicts of goals
+if "user_goals" not in st.session_state: st.session_state.user_goals = []
 if "dark_mode" not in st.session_state: st.session_state.dark_mode = True
 
 # ==========================================
@@ -57,34 +57,39 @@ st.markdown(f"""
     /* Hide default Streamlit elements */
     #MainMenu, footer, header {{ visibility: hidden !important; }}
     
-    /* Add extra padding at the bottom so content doesn't hide behind the new bottom nav */
-    .block-container {{ padding-top: 1rem !important; padding-bottom: 6rem !important; max-width: 600px; }}
+    /* Massive bottom padding so chat messages don't hide behind the input + nav bar */
+    .block-container {{ padding-top: 1rem !important; padding-bottom: 9rem !important; max-width: 600px; }}
 
     /* ==========================================
        FIX 1: Force Metrics to respect Light/Dark Mode
        ========================================== */
-    [data-testid="stMetricValue"] > div {{
-        color: var(--text) !important;
-    }}
-    [data-testid="stMetricLabel"] p {{
-        color: var(--muted) !important;
-    }}
+    [data-testid="stMetricValue"] > div {{ color: var(--text) !important; }}
+    [data-testid="stMetricLabel"] p {{ color: var(--muted) !important; }}
 
     /* ==========================================
-       FIX 2: Pin the Navigation Menu to the Bottom
+       FIX 2: Pin Nav Menu strictly to the bottom
        ========================================== */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
-        bottom: 0 !important;
+        bottom: 0px !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
         width: 100% !important;
-        max-width: 600px !important; /* Matches app width */
-        z-index: 99999 !important;
+        max-width: 600px !important; 
+        z-index: 999999 !important; /* Guaranteed to sit on top */
         background-color: var(--bg) !important;
         padding-top: 10px;
-        padding-bottom: 15px; /* Safe area for modern phones */
+        padding-bottom: 10px; 
         border-top: 1px solid var(--border);
+    }}
+
+    /* ==========================================
+       FIX 3: Float the Chat Input ABOVE the Nav Menu
+       ========================================== */
+    [data-testid="stChatInput"] {{
+        bottom: 75px !important; /* Lifts it directly above the nav bar */
+        background-color: var(--bg) !important;
+        z-index: 99999 !important;
     }}
 
     /* Ticker Animation */
@@ -97,27 +102,17 @@ st.markdown(f"""
         display: inline-block; white-space: nowrap; padding-right: 100%;
         animation: ticker 25s linear infinite;
     }}
-    .ticker__item {{
-        display: inline-block; padding: 0 2rem; font-size: 0.8rem; font-weight: 600; color: var(--text);
-    }}
+    .ticker__item {{ display: inline-block; padding: 0 2rem; font-size: 0.8rem; font-weight: 600; color: var(--text); }}
     @keyframes ticker {{ 0% {{ transform: translate3d(0, 0, 0); }} 100% {{ transform: translate3d(-100%, 0, 0); }} }}
 
-    /* App Cards */
+    /* App Cards & Buttons */
     .app-card {{
         background: var(--surface); border: 1px solid var(--border);
         border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }}
-    
-    /* Progress Bar */
-    .progress-bg {{
-        background: var(--border); height: 8px; border-radius: 4px; width: 100%; margin: 10px 0; overflow: hidden;
-    }}
-    .progress-fill {{
-        background: var(--success); height: 100%; border-radius: 4px;
-    }}
-
-    /* Quick Actions */
+    .progress-bg {{ background: var(--border); height: 8px; border-radius: 4px; width: 100%; margin: 10px 0; overflow: hidden; }}
+    .progress-fill {{ background: var(--success); height: 100%; border-radius: 4px; }}
     .stButton>button {{
         border-radius: 12px !important; background-color: var(--surface) !important;
         color: var(--accent) !important; border: 1px solid var(--accent) !important;
