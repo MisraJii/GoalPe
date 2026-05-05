@@ -52,6 +52,8 @@ st.markdown(f"""
         background-color: var(--bg) !important;
         color: var(--text) !important;
         font-family: var(--font) !important;
+        /* KILLS MOBILE PULL-TO-REFRESH */
+        overscroll-behavior-y: none !important; 
     }}
     
     /* Hide default Streamlit elements */
@@ -76,7 +78,7 @@ st.markdown(f"""
         transform: translateX(-50%) !important;
         width: 100% !important;
         max-width: 600px !important; 
-        height: 80px !important; /* <--- This gives the menu room to breathe */
+        height: 80px !important; 
         z-index: 999999 !important; 
         background-color: var(--bg) !important;
         border-top: 1px solid var(--border);
@@ -86,12 +88,12 @@ st.markdown(f"""
        FIX 3: Float the entire Streamlit Bottom Container UP
        ========================================== */
     [data-testid="stBottom"] {{
-        bottom: 80px !important; /* Pushes chat box perfectly above nav bar */
+        bottom: 80px !important; 
         z-index: 99999 !important;
         background-color: var(--bg) !important;
     }}
     [data-testid="stChatInput"] {{
-        bottom: 80px !important; /* Fallback for older Streamlit versions */
+        bottom: 80px !important; 
     }}
 
     /* Ticker Animation */
