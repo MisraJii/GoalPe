@@ -4,4 +4,3 @@ yfinance
 gspread
 google-auth
 streamlit-option-menu
-pandas
