@@ -48,13 +48,16 @@ st.markdown(f"""
         --font: 'Sora', sans-serif;
     }}
 
-    html, body, [data-testid="stAppViewContainer"] {{
+html, body, [data-testid="stAppViewContainer"], .main, .block-container, * {
         background-color: var(--bg) !important;
         color: var(--text) !important;
         font-family: var(--font) !important;
-        /* KILLS MOBILE PULL-TO-REFRESH */
+        /* Kills it on standard browsers */
+        overscroll-behavior: none !important;
         overscroll-behavior-y: none !important; 
-    }}
+        /* Kills it on older WebKit (Apple/Safari) engines */
+        -webkit-overscroll-behavior: none !important;
+    }
     
     /* Hide default Streamlit elements */
     #MainMenu, footer, header {{ visibility: hidden !important; }}
