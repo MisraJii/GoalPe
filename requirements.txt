@@ -1,6 +1,7 @@
-streamlit
-google-generativeai
-yfinance
-gspread
-google-auth
-streamlit-option-menu
+streamlit==1.39.0
+google-generativeai==0.8.3
+yfinance==0.2.48
+gspread==6.1.4
+google-auth==2.35.0
+streamlit-option-menu==0.4.0
+pandas==2.2.3
