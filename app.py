@@ -48,7 +48,7 @@ st.markdown(f"""
         --font: 'Sora', sans-serif;
     }}
 
-    /* FIX 1: Target .stApp to ensure no black borders remain on the absolute background */
+    /* Base Backgrounds */
     html, body, [data-testid="stAppViewContainer"], .stApp {{
         background-color: var(--bg) !important;
         color: var(--text) !important;
@@ -56,17 +56,19 @@ st.markdown(f"""
         overscroll-behavior-y: none !important; 
     }}
     
-    /* Hide default Streamlit elements */
-    #MainMenu, footer, header {{ visibility: hidden !important; }}
+    /* Hide default Streamlit elements securely */
+    #MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; display: none !important; }}
     
-    /* Massive bottom padding so you can scroll to the very last message */
-    .block-container {{ padding-top: 1rem !important; padding-bottom: 160px !important; max-width: 600px; }}
+    /* Bottom padding so you can scroll to the very last message */
+    .block-container {{ padding-top: 1rem !important; padding-bottom: 120px !important; max-width: 600px; }}
 
-    /* Force Metrics to respect Light/Dark Mode */
+    /* Fix Metrics Text */
     [data-testid="stMetricValue"] > div {{ color: var(--text) !important; }}
     [data-testid="stMetricLabel"] p {{ color: var(--muted) !important; }}
 
-    /* Force IFRAME Height so menu isn't cut off */
+    /* ==========================================
+       FIX: The Navigation Menu & The Black Box
+       ========================================== */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
         bottom: 0px !important;
@@ -74,36 +76,47 @@ st.markdown(f"""
         transform: translateX(-50%) !important;
         width: 100% !important;
         max-width: 600px !important; 
-        height: 80px !important; 
+        height: 75px !important; 
         z-index: 999999 !important; 
-        background-color: var(--bg) !important;
-        border-top: 1px solid var(--border);
+        /* Match the iframe background strictly to the menu surface to kill the black gap */
+        background-color: var(--surface) !important;
+        border-top: 1px solid var(--border) !important;
     }}
 
-    /* FIX 2: Float the entire Streamlit Bottom Container UP & Force its inner divs to match the background */
-    [data-testid="stBottom"], [data-testid="stBottom"] > div {{
-        bottom: 80px !important; 
+    /* ==========================================
+       FIX: The Ruined Chatbox 
+       ========================================== */
+    /* Push the Streamlit bottom container up so it doesn't hide behind the nav menu */
+    [data-testid="stBottom"] {{
+        bottom: 75px !important; 
+        background-color: transparent !important;
         z-index: 99999 !important;
-        background-color: var(--bg) !important;
     }}
     
-    /* FIX 3: Style the Chat Input Box to match Light/Dark mode */
+    /* Make the bottom wrapper match the page background */
+    [data-testid="stBottom"] > div {{
+        background-color: var(--bg) !important;
+    }}
+
+    /* Force the Chat Input outer wrapper to be transparent */
     [data-testid="stChatInput"] {{
-        bottom: 80px !important; 
-        background-color: var(--bg) !important;
-    }}
-    [data-testid="stChatInput"] textarea {{
-        background-color: var(--surface) !important;
-        color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-    }}
-    
-    /* FIX 4: Ensure Chat Messages are visible in Light Mode */
-    [data-testid="stChatMessage"] {{
         background-color: transparent !important;
     }}
-    [data-testid="stChatMessage"] .stMarkdown {{
+    
+    /* Style the actual visual box you type in */
+    [data-testid="stChatInput"] > div {{
+        background-color: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+    }}
+    
+    /* Fix the text and placeholder colors inside the chatbox */
+    [data-testid="stChatInput"] textarea {{
         color: var(--text) !important;
+        background-color: transparent !important;
+    }}
+    [data-testid="stChatInput"] textarea::placeholder {{
+        color: var(--muted) !important;
     }}
 
     /* Ticker Animation */
