@@ -23,11 +23,9 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "user_goals" not in st.session_state: st.session_state.user_goals = []
 if "dark_mode" not in st.session_state: st.session_state.dark_mode = True
-# Tracks active tab safely
-if "menu_index" not in st.session_state: st.session_state.menu_index = 0
 
 # ==========================================
-# Dynamic CSS Injection (Safe Polish Only)
+# Dynamic CSS Injection (Light/Dark Mode & App UI)
 # ==========================================
 bg_color = "#0d0f14" if st.session_state.dark_mode else "#f4f6f8"
 surface_color = "#151820" if st.session_state.dark_mode else "#ffffff"
@@ -47,12 +45,12 @@ st.markdown(f"""
         overscroll-behavior-y: none !important; 
     }}
     
-    /* 2. HIDE NATIVE HEADER */
+    /* 2. HIDE NATIVE HEADER SECURELY */
     header[data-testid="stHeader"], #MainMenu, footer {{ 
         display: none !important; 
     }}
     
-    /* 3. MAIN CONTAINER PADDING */
+    /* 3. MAIN CONTAINER SCROLL PADDING */
     .block-container {{ 
         padding-top: 1rem !important; 
         padding-bottom: 140px !important; 
@@ -60,10 +58,10 @@ st.markdown(f"""
     }}
 
     /* 4. FIX INVISIBLE METRIC TEXT */
-    [data-testid="stMetricValue"] > div {{ color: {text_color} !important; font-weight: 700 !important; }}
+    [data-testid="stMetricValue"] > div {{ color: {text_color} !important; }}
     [data-testid="stMetricLabel"] p {{ color: {muted_color} !important; }}
 
-    /* 5. THE NAVIGATION MENU IFRAME (Solid Color, No Blur Glitches) */
+    /* 5. THE NAVIGATION MENU IFRAME */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
         bottom: 0px !important;
@@ -82,10 +80,10 @@ st.markdown(f"""
         padding: 0 !important;
     }}
 
-    /* 6. CHAT INPUT PLACEMENT */
+    /* 6. FIX THE CHAT INPUT OVERLAP */
     [data-testid="stBottom"] {{
         background-color: {bg_color} !important;
-        padding-bottom: 75px !important; 
+        padding-bottom: 75px !important; /* Perfect sync with iframe height */
         z-index: 99990 !important;
     }}
     [data-testid="stBottom"] > div {{
@@ -104,7 +102,6 @@ st.markdown(f"""
         color: {text_color} !important;
         -webkit-text-fill-color: {text_color} !important;
         border-color: {border_color} !important;
-        border-radius: 12px !important; 
     }}
     [data-testid="stChatInput"] textarea::placeholder {{
         color: {muted_color} !important;
@@ -126,7 +123,7 @@ st.markdown(f"""
         color: {text_color} !important;
     }}
 
-    /* 9. TICKER & APP CARDS (Stable Animations) */
+    /* 9. TICKER & APP CARDS */
     .ticker-wrap {{
         width: 100%; overflow: hidden; 
         background-color: {surface_color} !important;
@@ -148,12 +145,6 @@ st.markdown(f"""
         border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }}
-    
-    /* Subtle hover effect that won't break the DOM */
-    .app-card:hover {{
-        border-color: {accent_color};
-    }}
-    
     .progress-bg {{ background: {border_color}; height: 8px; border-radius: 4px; width: 100%; margin: 10px 0; overflow: hidden; }}
     .progress-fill {{ background: {accent_color}; height: 100%; border-radius: 4px; }}
     
@@ -253,14 +244,12 @@ def chat_with_goalpe(user_message):
 # ==========================================
 # Navigation Bar
 # ==========================================
-menu_options = ["Home", "Markets", "Goals", "Profile"]
-
 selected = option_menu(
     menu_title=None,
-    options=menu_options,
+    options=["Home", "Markets", "Goals", "Profile"],
     icons=["house", "graph-up", "bullseye", "person"],
     menu_icon="cast",
-    default_index=st.session_state.menu_index,
+    default_index=0,
     orientation="horizontal",
     styles={
         "container": {
@@ -268,17 +257,13 @@ selected = option_menu(
             "background-color": surface_color, 
             "border-radius": "0px", 
             "margin-bottom": "0px",
-            "height": "100vh" 
+            "height": "100vh" # <-- THE MAGIC FIX: Forces menu background to fill the empty black void
         },
         "icon": {"color": accent_color, "font-size": "18px"}, 
         "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": border_color, "color": text_color},
         "nav-link-selected": {"background-color": accent_color, "color": "white"},
     }
 )
-
-# Keep the menu synced with what the user actually clicked
-if selected in menu_options:
-    st.session_state.menu_index = menu_options.index(selected)
 
 # ==========================================
 # VIEWS
@@ -381,9 +366,7 @@ elif selected == "Goals":
 elif selected == "Profile":
     st.markdown(f"""
     <div style="text-align:center; padding: 20px 0;">
-        <div style="width: 86px; height: 86px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, {accent_color}, #a29bfe); padding: 3px;">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sulakshya" width="100%" style="border-radius:50%; background:{surface_color};">
-        </div>
+        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sulakshya" width="80" style="border-radius:50%; background:#e0e0e0;">
         <h3 style="margin:10px 0 0 0; color:{text_color};">User (DEMO)</h3>
         <p style="color:{accent_color}; font-size:14px; margin:0;">Goals Set: {st.session_state.goals_set} | Impulses Skipped: {st.session_state.impulses_skipped}</p>
     </div>
