@@ -37,7 +37,7 @@ accent_color = "#6c5ce7"
 st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-    /* 1. FORCE CORE BACKGROUNDS (KILLS THE BLACK VOID) */
+    /* 1. FORCE CORE BACKGROUNDS */
     html, body, #root, .stApp, [data-testid="stAppViewContainer"] {{
         background-color: {bg_color} !important;
         color: {text_color} !important;
@@ -61,7 +61,7 @@ st.markdown(f"""
     [data-testid="stMetricValue"] > div {{ color: {text_color} !important; }}
     [data-testid="stMetricLabel"] p {{ color: {muted_color} !important; }}
 
-    /* 5. THE NAVIGATION MENU */
+    /* 5. THE NAVIGATION MENU IFRAME */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
         bottom: 0px !important;
@@ -75,17 +75,15 @@ st.markdown(f"""
         border-top: 1px solid {border_color} !important;
     }}
     
-    /* Kill any transparent padding around the iframe */
     div[data-testid="stVerticalBlock"] > div:has(iframe) {{
         background-color: transparent !important;
         padding: 0 !important;
     }}
 
-    /* 6. FIX THE CHAT INPUT OVERLAP (WITHOUT DETACHING THE BACKGROUND) */
+    /* 6. FIX THE CHAT INPUT OVERLAP */
     [data-testid="stBottom"] {{
         background-color: {bg_color} !important;
-        /* Padding pushes the chatbox up, but keeps the background glued to the bottom */
-        padding-bottom: 80px !important; 
+        padding-bottom: 75px !important; /* Perfect sync with iframe height */
         z-index: 99990 !important;
     }}
     [data-testid="stBottom"] > div {{
@@ -96,7 +94,6 @@ st.markdown(f"""
     [data-testid="stChatInput"] {{
         background-color: {bg_color} !important;
     }}
-    /* Target the deep baseweb containers Streamlit hides inside the chat input */
     [data-testid="stChatInput"] > div,
     div[data-baseweb="input"], 
     div[data-baseweb="base-input"],
@@ -111,7 +108,6 @@ st.markdown(f"""
         -webkit-text-fill-color: {muted_color} !important;
     }}
     
-    /* Fix the submit arrow color */
     [data-testid="stChatInputSubmitButton"] {{
         color: {accent_color} !important;
     }}
@@ -256,7 +252,13 @@ selected = option_menu(
     default_index=0,
     orientation="horizontal",
     styles={
-        "container": {"padding": "0!important", "background-color": surface_color, "border-radius": "0px", "margin-bottom": "0px"},
+        "container": {
+            "padding": "0!important", 
+            "background-color": surface_color, 
+            "border-radius": "0px", 
+            "margin-bottom": "0px",
+            "height": "100vh" # <-- THE MAGIC FIX: Forces menu background to fill the empty black void
+        },
         "icon": {"color": accent_color, "font-size": "18px"}, 
         "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": border_color, "color": text_color},
         "nav-link-selected": {"background-color": accent_color, "color": "white"},
