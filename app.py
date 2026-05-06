@@ -23,36 +23,23 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "user_goals" not in st.session_state: st.session_state.user_goals = []
 if "dark_mode" not in st.session_state: st.session_state.dark_mode = True
-# Tracks the active tab to fix the navigation visual bug
+# Tracks active tab safely
 if "menu_index" not in st.session_state: st.session_state.menu_index = 0
 
 # ==========================================
-# Dynamic CSS Injection (Premium UI Upgrades)
+# Dynamic CSS Injection (Safe Polish Only)
 # ==========================================
 bg_color = "#0d0f14" if st.session_state.dark_mode else "#f4f6f8"
 surface_color = "#151820" if st.session_state.dark_mode else "#ffffff"
-text_color = "#e8eaf0" if st.session_state.dark_mode else "#111827"
-muted_color = "#9ca3af" if st.session_state.dark_mode else "#6b7280"
-border_color = "#2d3748" if st.session_state.dark_mode else "#e5e7eb"
+text_color = "#e8eaf0" if st.session_state.dark_mode else "#151820"
+muted_color = "#6b7280"
+border_color = "#252a38" if st.session_state.dark_mode else "#e5e7eb"
 accent_color = "#6c5ce7"
-# Transparent background for the frosted glass effect
-glass_bg = "rgba(21, 24, 32, 0.85)" if st.session_state.dark_mode else "rgba(255, 255, 255, 0.85)"
 
 st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-    /* KEYFRAME ANIMATIONS (The "Juice") */
-    @keyframes slideUpFade {{
-        from {{ opacity: 0; transform: translateY(20px); }}
-        to {{ opacity: 1; transform: translateY(0); }}
-    }}
-    @keyframes pulseSoft {{
-        0% {{ transform: scale(1); }}
-        50% {{ transform: scale(1.02); }}
-        100% {{ transform: scale(1); }}
-    }}
-
-    /* 1. CORE BACKGROUNDS */
+    /* 1. FORCE CORE BACKGROUNDS */
     html, body, #root, .stApp, [data-testid="stAppViewContainer"] {{
         background-color: {bg_color} !important;
         color: {text_color} !important;
@@ -60,23 +47,23 @@ st.markdown(f"""
         overscroll-behavior-y: none !important; 
     }}
     
-    header[data-testid="stHeader"], #MainMenu, footer {{ display: none !important; }}
+    /* 2. HIDE NATIVE HEADER */
+    header[data-testid="stHeader"], #MainMenu, footer {{ 
+        display: none !important; 
+    }}
     
+    /* 3. MAIN CONTAINER PADDING */
     .block-container {{ 
         padding-top: 1rem !important; 
         padding-bottom: 140px !important; 
         max-width: 600px; 
     }}
 
-    /* Apply animations to core UI elements */
-    [data-testid="stChatMessage"], .app-card, [data-testid="stMetricValue"], h2, h3, h4 {{
-        animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }}
-
+    /* 4. FIX INVISIBLE METRIC TEXT */
     [data-testid="stMetricValue"] > div {{ color: {text_color} !important; font-weight: 700 !important; }}
     [data-testid="stMetricLabel"] p {{ color: {muted_color} !important; }}
 
-    /* 2. PREMIUM FROSTED GLASS NAVIGATION MENU */
+    /* 5. THE NAVIGATION MENU IFRAME (Solid Color, No Blur Glitches) */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
         bottom: 0px !important;
@@ -86,11 +73,8 @@ st.markdown(f"""
         max-width: 600px !important; 
         height: 75px !important; 
         z-index: 999999 !important; 
-        background-color: {glass_bg} !important;
-        backdrop-filter: blur(12px) !important; /* iOS Style Glass Effect */
-        -webkit-backdrop-filter: blur(12px) !important;
+        background-color: {surface_color} !important;
         border-top: 1px solid {border_color} !important;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05) !important;
     }}
     
     div[data-testid="stVerticalBlock"] > div:has(iframe) {{
@@ -98,19 +82,19 @@ st.markdown(f"""
         padding: 0 !important;
     }}
 
-    /* 3. CHAT INPUT UPGRADES */
+    /* 6. CHAT INPUT PLACEMENT */
     [data-testid="stBottom"] {{
-        background-color: transparent !important; /* Let the page background show */
+        background-color: {bg_color} !important;
         padding-bottom: 75px !important; 
         z-index: 99990 !important;
     }}
     [data-testid="stBottom"] > div {{
         background-color: {bg_color} !important;
-        background-image: linear-gradient(to top, {bg_color} 80%, transparent) !important; /* Smooth fade into background */
     }}
 
+    /* 7. FORCE CHAT INPUT TEXT AND COLORS TO OBEY THEME */
     [data-testid="stChatInput"] {{
-        background-color: transparent !important;
+        background-color: {bg_color} !important;
     }}
     [data-testid="stChatInput"] > div,
     div[data-baseweb="input"], 
@@ -120,15 +104,8 @@ st.markdown(f"""
         color: {text_color} !important;
         -webkit-text-fill-color: {text_color} !important;
         border-color: {border_color} !important;
-        border-radius: 16px !important; /* Rounder, modern input */
-        transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
+        border-radius: 12px !important; 
     }}
-    /* Glow effect on chat focus */
-    [data-testid="stChatInput"] > div:focus-within {{
-        border-color: {accent_color} !important;
-        box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2) !important;
-    }}
-    
     [data-testid="stChatInput"] textarea::placeholder {{
         color: {muted_color} !important;
         -webkit-text-fill-color: {muted_color} !important;
@@ -141,7 +118,7 @@ st.markdown(f"""
         fill: {accent_color} !important;
     }}
 
-    /* 4. CHAT MESSAGES */
+    /* 8. FIX INVISIBLE CHAT MESSAGES */
     [data-testid="stChatMessage"] {{
         background-color: transparent !important;
     }}
@@ -149,53 +126,43 @@ st.markdown(f"""
         color: {text_color} !important;
     }}
 
-    /* 5. TICKER & CARDS WITH HOVER EFFECTS */
+    /* 9. TICKER & APP CARDS (Stable Animations) */
     .ticker-wrap {{
         width: 100%; overflow: hidden; 
         background-color: {surface_color} !important;
-        border: 1px solid {border_color}; 
-        padding: 10px 0; margin-bottom: 20px; border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        border-bottom: 1px solid {border_color}; 
+        padding: 8px 0; margin-bottom: 15px; border-radius: 8px;
     }}
     .ticker {{
         display: inline-block; white-space: nowrap; padding-right: 100%;
         animation: ticker 25s linear infinite;
     }}
     .ticker__item {{ 
-        display: inline-block; padding: 0 2rem; font-size: 0.85rem; 
+        display: inline-block; padding: 0 2rem; font-size: 0.8rem; 
         font-weight: 600; color: {text_color} !important; 
     }}
+    @keyframes ticker {{ 0% {{ transform: translate3d(0, 0, 0); }} 100% {{ transform: translate3d(-100%, 0, 0); }} }}
 
     .app-card {{
         background: {surface_color}; border: 1px solid {border_color};
-        border-radius: 20px; padding: 1.5rem; margin-bottom: 1.2rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }}
-    /* Make cards pop out slightly when touched/hovered */
+    
+    /* Subtle hover effect that won't break the DOM */
     .app-card:hover {{
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+        border-color: {accent_color};
     }}
     
-    .progress-bg {{ background: {border_color}; height: 10px; border-radius: 5px; width: 100%; margin: 12px 0; overflow: hidden; }}
-    .progress-fill {{ background: {accent_color}; height: 100%; border-radius: 5px; transition: width 1s ease-in-out; }}
+    .progress-bg {{ background: {border_color}; height: 8px; border-radius: 4px; width: 100%; margin: 10px 0; overflow: hidden; }}
+    .progress-fill {{ background: {accent_color}; height: 100%; border-radius: 4px; }}
     
-    /* Premium Buttons */
     .stButton>button {{
-        border-radius: 14px !important; background-color: {surface_color} !important;
-        color: {accent_color} !important; border: 1px solid {border_color} !important;
+        border-radius: 12px !important; background-color: {surface_color} !important;
+        color: {accent_color} !important; border: 1px solid {accent_color} !important;
         font-weight: 600 !important; width: 100% !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
     }}
-    .stButton>button:hover {{ 
-        background-color: {accent_color} !important; 
-        color: white !important; 
-        border-color: {accent_color} !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 15px rgba(108, 92, 231, 0.2) !important;
-    }}
+    .stButton>button:hover {{ background-color: {accent_color} !important; color: white !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -293,23 +260,23 @@ selected = option_menu(
     options=menu_options,
     icons=["house", "graph-up", "bullseye", "person"],
     menu_icon="cast",
-    default_index=st.session_state.menu_index, # <--- BUG FIX: Uses Session State to remember active tab
+    default_index=st.session_state.menu_index,
     orientation="horizontal",
     styles={
         "container": {
             "padding": "0!important", 
-            "background-color": "transparent", 
+            "background-color": surface_color, 
             "border-radius": "0px", 
             "margin-bottom": "0px",
             "height": "100vh" 
         },
-        "icon": {"color": accent_color, "font-size": "20px"}, 
-        "nav-link": {"font-size": "13px", "text-align": "center", "margin":"0px", "--hover-color": border_color, "color": text_color, "font-weight": "500"},
+        "icon": {"color": accent_color, "font-size": "18px"}, 
+        "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": border_color, "color": text_color},
         "nav-link-selected": {"background-color": accent_color, "color": "white"},
     }
 )
 
-# Update the session state immediately if the user clicked a new tab
+# Keep the menu synced with what the user actually clicked
 if selected in menu_options:
     st.session_state.menu_index = menu_options.index(selected)
 
@@ -317,9 +284,9 @@ if selected in menu_options:
 # VIEWS
 # ==========================================
 if selected == "Home":
-    st.markdown(f"""<div style="display:flex; align-items:center; gap:12px; margin-bottom: 20px;">
-        <div style="background: linear-gradient(135deg, {accent_color}, #a29bfe); padding:10px; border-radius:12px; font-size:22px; box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);">🎯</div>
-        <h2 style="margin:0; padding:0; color:{text_color}; font-weight: 700; letter-spacing: -0.5px;">GoalPe</h2>
+    st.markdown(f"""<div style="display:flex; align-items:center; gap:10px; margin-bottom: 15px;">
+        <div style="background:{accent_color}; padding:8px; border-radius:10px; font-size:20px;">🎯</div>
+        <h2 style="margin:0; padding:0; color:{text_color};">GoalPe</h2>
     </div>""", unsafe_allow_html=True)
 
     # Ticker
@@ -370,29 +337,29 @@ if selected == "Home":
 
 
 elif selected == "Markets":
-    st.markdown(f"<h3 style='color:{text_color}; margin-bottom: 20px; font-weight:700;'>Live Markets</h3>", unsafe_allow_html=True)
+    st.subheader("Live Markets")
     market_data = get_market_data()
     for name, data in market_data.items():
         color = "green" if data['change'] >= 0 else "red"
         st.metric(name, f"₹{data['price']:,.2f}", f"{data['change']:.2f}%")
     
-    st.markdown(f"<h4 style='color:{text_color}; margin-top:30px; font-weight:600;'>Top Categories (Simulated)</h4>", unsafe_allow_html=True)
+    st.markdown("### Top Mutual Fund Categories (Simulated)")
     st.markdown(f"""
     <div class="app-card">
-        <h5 style="color:#00b894; margin:0 0 12px 0; font-size: 16px;">🔥 Top Gainers</h5>
-        <div style="display:flex; justify-content:space-between; color:{text_color}; margin-bottom:8px; font-size:14px;"><span>IT Sector Funds</span> <span style="font-weight:600;">+2.4%</span></div>
-        <div style="display:flex; justify-content:space-between; color:{text_color}; font-size:14px;"><span>Small Cap Funds</span> <span style="font-weight:600;">+1.8%</span></div>
+        <h5 style="color:#00b894; margin:0 0 10px 0;">🔥 Top Gainers</h5>
+        <p style="margin:0; display:flex; justify-content:space-between; color:{text_color};"><span>IT Sector Funds</span> <span>+2.4%</span></p>
+        <p style="margin:0; display:flex; justify-content:space-between; color:{text_color};"><span>Small Cap Funds</span> <span>+1.8%</span></p>
     </div>
     <div class="app-card">
-        <h5 style="color:#ff7675; margin:0 0 12px 0; font-size: 16px;">🔻 Top Losers</h5>
-        <div style="display:flex; justify-content:space-between; color:{text_color}; margin-bottom:8px; font-size:14px;"><span>FMCG Sector Funds</span> <span style="font-weight:600;">-0.9%</span></div>
-        <div style="display:flex; justify-content:space-between; color:{text_color}; font-size:14px;"><span>Debt Ultra Short</span> <span style="font-weight:600;">-0.1%</span></div>
+        <h5 style="color:#ff7675; margin:0 0 10px 0;">🔻 Top Losers</h5>
+        <p style="margin:0; display:flex; justify-content:space-between; color:{text_color};"><span>FMCG Sector Funds</span> <span>-0.9%</span></p>
+        <p style="margin:0; display:flex; justify-content:space-between; color:{text_color};"><span>Debt Ultra Short</span> <span>-0.1%</span></p>
     </div>
     """, unsafe_allow_html=True)
 
 
 elif selected == "Goals":
-    st.markdown(f"<h3 style='color:{text_color}; margin-bottom: 20px; font-weight:700;'>Your Active Quests</h3>", unsafe_allow_html=True)
+    st.subheader("Your Active Quests")
     if len(st.session_state.user_goals) == 0:
         st.info("No active goals yet. Go to Home to set one up!")
     else:
@@ -400,15 +367,12 @@ elif selected == "Goals":
             progress = random.randint(10, 80) 
             st.markdown(f"""
             <div class="app-card">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
-                    <h4 style="margin:0; color:{text_color}; font-weight: 600;">{g.get('goal_name', 'Savings Goal')}</h4>
-                    <span style="background: rgba(108, 92, 231, 0.1); color: {accent_color}; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 700;">ON TRACK</span>
-                </div>
-                <p style="color:{muted_color}; font-size:13px; margin-bottom:12px;">Target: <strong style="color:{text_color}">₹{g.get('amount', 0):,}</strong></p>
+                <h4 style="margin:0; color:{text_color};">{g.get('goal_name', 'Savings Goal')}</h4>
+                <p style="color:{muted_color}; font-size:12px; margin-bottom:10px;">Target: ₹{g.get('amount', 0):,}</p>
                 <div class="progress-bg"><div class="progress-fill" style="width: {progress}%;"></div></div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-top: 12px;">
-                    <span style="color:{text_color};">SIP: <strong style="color:{accent_color};">₹{g.get('sip', 0):,}/mo</strong></span>
-                    <span style="color:{muted_color};"><strong>{g.get('months', 0)}</strong> months left</span>
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span style="color:{accent_color}; font-weight:bold;">SIP: ₹{g.get('sip', 0):,}/mo</span>
+                    <span style="color:{text_color};">{g.get('months', 0)} months left</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -416,37 +380,26 @@ elif selected == "Goals":
 
 elif selected == "Profile":
     st.markdown(f"""
-    <div style="text-align:center; padding: 30px 0 10px 0;">
-        <div style="width: 90px; height: 90px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, {accent_color}, #a29bfe); padding: 3px; box-shadow: 0 8px 20px rgba(108, 92, 231, 0.3);">
+    <div style="text-align:center; padding: 20px 0;">
+        <div style="width: 86px; height: 86px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, {accent_color}, #a29bfe); padding: 3px;">
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sulakshya" width="100%" style="border-radius:50%; background:{surface_color};">
         </div>
-        <h3 style="margin:15px 0 5px 0; color:{text_color}; font-weight: 700;">User (DEMO)</h3>
-        <p style="color:{muted_color}; font-size:14px; margin:0; font-weight: 500;">Beta Tester</p>
-    </div>
-    
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <div class="app-card" style="flex: 1; text-align: center; padding: 1rem;">
-            <h3 style="color:{accent_color}; margin: 0; font-size: 24px;">{st.session_state.goals_set}</h3>
-            <p style="color:{muted_color}; font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Goals Set</p>
-        </div>
-        <div class="app-card" style="flex: 1; text-align: center; padding: 1rem;">
-            <h3 style="color:{accent_color}; margin: 0; font-size: 24px;">{st.session_state.impulses_skipped}</h3>
-            <p style="color:{muted_color}; font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Impulses Skipped</p>
-        </div>
+        <h3 style="margin:10px 0 0 0; color:{text_color};">User (DEMO)</h3>
+        <p style="color:{accent_color}; font-size:14px; margin:0;">Goals Set: {st.session_state.goals_set} | Impulses Skipped: {st.session_state.impulses_skipped}</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("---")
     
     if st.button("🌓 Toggle Light/Dark Mode"):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
         
     st.markdown(f"""
-    <div class="app-card" style="margin-top: 10px;">
-        <h4 style="color:{text_color}; font-weight: 600; margin-bottom: 8px;">About GoalPe</h4>
-        <p style="font-size:13px; color:{muted_color}; line-height: 1.5;">GoalPe is an AI-driven behavioral finance prototype designed for the next 100M Indian retail investors.</p>
-        <div style="background: rgba(255, 118, 117, 0.1); border-left: 3px solid #ff7675; padding: 10px; border-radius: 0 8px 8px 0; margin-top: 15px;">
-            <p style="font-size:11px; color:{text_color}; margin: 0;"><b>Disclaimer:</b> GoalPe is an AI prototype. It is not a SEBI registered advisor. Do not use for actual trading decisions.</p>
-        </div>
+    <div class="app-card">
+        <h4 style="color:{text_color};">About GoalPe</h4>
+        <p style="font-size:12px; color:{muted_color};">GoalPe is an AI-driven behavioral finance prototype designed for the next 100M Indian retail investors.</p>
+        <p style="font-size:11px; color:{muted_color}; margin-top:10px;"><b>Disclaimer:</b> GoalPe is an AI prototype. It is not a SEBI registered advisor. Do not use for actual trading decisions.</p>
     </div>
     """, unsafe_allow_html=True)
     
