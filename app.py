@@ -48,7 +48,10 @@ st.markdown(f"""
         --font: 'Sora', sans-serif;
     }}
 
-html, body, [data-testid="stAppViewContainer"], .main, .block-container, * {
+    /* ==========================================
+       THE NUCLEAR FIX: Kill Pull-to-Refresh everywhere
+       ========================================== */
+    html, body, [data-testid="stAppViewContainer"], .main, .block-container, * {{
         background-color: var(--bg) !important;
         color: var(--text) !important;
         font-family: var(--font) !important;
@@ -57,7 +60,7 @@ html, body, [data-testid="stAppViewContainer"], .main, .block-container, * {
         overscroll-behavior-y: none !important; 
         /* Kills it on older WebKit (Apple/Safari) engines */
         -webkit-overscroll-behavior: none !important;
-    }
+    }}
     
     /* Hide default Streamlit elements */
     #MainMenu, footer, header {{ visibility: hidden !important; }}
