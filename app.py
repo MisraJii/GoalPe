@@ -48,11 +48,11 @@ st.markdown(f"""
         --font: 'Sora', sans-serif;
     }}
 
-    html, body, [data-testid="stAppViewContainer"] {{
+    /* FIX 1: Target .stApp to ensure no black borders remain on the absolute background */
+    html, body, [data-testid="stAppViewContainer"], .stApp {{
         background-color: var(--bg) !important;
         color: var(--text) !important;
         font-family: var(--font) !important;
-        /* KILLS MOBILE PULL-TO-REFRESH */
         overscroll-behavior-y: none !important; 
     }}
     
@@ -62,15 +62,11 @@ st.markdown(f"""
     /* Massive bottom padding so you can scroll to the very last message */
     .block-container {{ padding-top: 1rem !important; padding-bottom: 160px !important; max-width: 600px; }}
 
-    /* ==========================================
-       FIX 1: Force Metrics to respect Light/Dark Mode
-       ========================================== */
+    /* Force Metrics to respect Light/Dark Mode */
     [data-testid="stMetricValue"] > div {{ color: var(--text) !important; }}
     [data-testid="stMetricLabel"] p {{ color: var(--muted) !important; }}
 
-    /* ==========================================
-       FIX 2: Force IFRAME Height so menu isn't cut off
-       ========================================== */
+    /* Force IFRAME Height so menu isn't cut off */
     iframe[title="streamlit_option_menu.option_menu"] {{
         position: fixed !important;
         bottom: 0px !important;
@@ -84,16 +80,30 @@ st.markdown(f"""
         border-top: 1px solid var(--border);
     }}
 
-    /* ==========================================
-       FIX 3: Float the entire Streamlit Bottom Container UP
-       ========================================== */
-    [data-testid="stBottom"] {{
+    /* FIX 2: Float the entire Streamlit Bottom Container UP & Force its inner divs to match the background */
+    [data-testid="stBottom"], [data-testid="stBottom"] > div {{
         bottom: 80px !important; 
         z-index: 99999 !important;
         background-color: var(--bg) !important;
     }}
+    
+    /* FIX 3: Style the Chat Input Box to match Light/Dark mode */
     [data-testid="stChatInput"] {{
         bottom: 80px !important; 
+        background-color: var(--bg) !important;
+    }}
+    [data-testid="stChatInput"] textarea {{
+        background-color: var(--surface) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+    }}
+    
+    /* FIX 4: Ensure Chat Messages are visible in Light Mode */
+    [data-testid="stChatMessage"] {{
+        background-color: transparent !important;
+    }}
+    [data-testid="stChatMessage"] .stMarkdown {{
+        color: var(--text) !important;
     }}
 
     /* Ticker Animation */
